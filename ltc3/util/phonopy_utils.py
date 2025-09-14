@@ -110,3 +110,15 @@ def rotate_atoms(orig_atoms, prec=1e-10):
     warnings.warn(f'Rotating atoms change symmetry (from {orig_spgnum} to {spgnum}')
     warnings.warn(f'We will not rotate atoms, but be careful when using ShengBTE')
     return orig_atoms
+
+def get_primitive_matrix(atoms, symprec=1e-5):
+    spgnum = get_spgnu(atoms, symprec=symprec)
+
+    if spgnum in [216, 225]:
+        return [[0,0.5,0.5],[0.5,0,0.5],[0.5,0.5,0]]]
+
+    elif spgnum == 186:
+        return 'auto'
+    else:
+        return 'auto'
+

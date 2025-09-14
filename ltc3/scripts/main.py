@@ -18,41 +18,6 @@ from ltc3.scripts.process_conductivity import (
 )
 
 
-def relax_atoms_list(config, atoms_list, calc):
-    logger = Logger()
-    ase_atom_relaxer = aar_from_config(config, calc)
-    relaxed_atoms_list = []
-    for idx, atoms in enumerate(tqdm(atoms_list, desc='atom relax')):
-        logger.log_progress_bar(idx, len(atoms_list), 'atom relax')
-        logger.recorder.update_recorder(
-            idx, 'Formula', atoms.get_chemical_formula(empirical=True)
-        )
-        atoms.info['init_spg_num'] = init_spg = get_spgnum(atoms)
-
-        atoms, conv = ase_atom_relaxer.relax_atoms(atoms)
-        atoms.calc = None
-        spg_num = atoms.info['spg_num'] = get_spgnum(atoms)
-        spg_same = spg_num == init_spg
-
-        logger.recorder.update_recorder(idx, 'Conv', bool(conv))
-        logger.recorder.update_recorder(idx, 'SPG_num', spg_num)
-        logger.recorder.update_recorder(idx, 'SPG_same', spg_same)
-        if not spg_same:
-            warnings.warn(
-                f'{idx}-th structure {atoms} changed spg '
-                + f'from {init_spg} to {spg_num} while relaxing'
-            )
-        if not conv:
-            step = config['relax']['steps']
-            warnings.warn(
-                f'{idx}-th structure {atoms} did not converged with in {step} steps!'
-            )
-        relaxed_atoms_list.append(atoms)
-    logger.finalize_progress_bar()
-
-    return relaxed_atoms_list
-
-
 def main():
     logger = Logger('log.ltc3')
     logger.greetings()

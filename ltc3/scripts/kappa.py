@@ -3,11 +3,14 @@ import sys
 from tqdm import tqdm
 import warnings
 
+from phono3py import Phono3py, load
+from phono3py import file_IO as ph3_IO
+from phonopy import file_IO as ph_IO
+
 from ltc3.util.logger import Logger
 from ltc3.util.phonopy_utils import check_imaginary_freqs, get_spgnum
 
-
-def _get_mesh_from_sg(atoms):
+def _get_mesh(atoms):
     sg_num = get_spgnum(atoms)
     if sg_num == 186:
         mesh = [19, 19, 15]
@@ -15,64 +18,65 @@ def _get_mesh_from_sg(atoms):
         mesh = [19, 19, 19]
     return mesh
 
-
-def postprocess_kappa_to_csv(file, idx, temps, kappas):
+def postprocess_kappa_to_csv(file, idx, temps, kappas, mesh, Im):
     for temp, kappa in zip(temps, kappas):
         if kappa is None:
             kappa_join = 'NaN'
         else:
             kappa = kappa.reshape(-1)
             kappa_join = ','.join(map(str,kappa))
-        file.write(f'{idx},{temp},{kappa_join}\n')
+        file.write(f'{idx},{temp},{kappa_join},{mesh},{Im}\n')
 
+def process__conductivity(config):
+    conf = config['cond']
+    save_dir = conf['save']
 
-def process__conductivity(config, relaxed_atoms_list, ph3_list):
-    logger = Logger()
-    save_path = config['data']['save_cond']
-    os.makedirs(save_path, exist_ok=True)
-
-    if isinstance(temp := config['conductivity']['temperature'], list):
+    if isinstance(temp := conf['temperature'], list):
         temperatures = list(range(temp[0], temp[1]+1, temp[2]))
     else:
         temperatures = [temp]
+
     if config['conductivity']['cond_type'].lower() == 'bte':
         conductivity_type = None
     else:
         conductivity_type = 'wigner'
 
-    csv_tot = open(f'{save_path}/kappa_total.csv', 'w', buffering=1)
-    csv_tot.write(f'index,temperature,xx,yy,zz,yz,xz,xy\n')
+    csv_tot = open(f'{save_dir}/kappa_total.csv', 'w', buffering=1)
+    csv_tot.write(f'index,temperature,xx,yy,zz,yz,xz,xy,mesh,Imaginary\n')
     if conductivity_type == 'wigner':
-        csv_p = open(f'{save_path}/kappa_p.csv', 'w', buffering=1)
+        # bte method doesn't need this? idk sadly this is way behind my priorities
+        csv_p = open(os.path.join(save_path,'kappa_p.csv'), 'w', buffering=1)
         csv_p.write(f'index,temperature,xx,yy,zz,yz,xz,xy\n')
-        csv_c = open(f'{save_path}/kappa_c.csv', 'w', buffering=1)
+        csv_c = open(os.path.join(save_path,'kappa_c.csv'), 'w', buffering=1)
         csv_c.write(f'index,temperature,xx,yy,zz,yz,xz,xy\n')
 
+
     KAPPA_KEYS = ['kappa', 'kappa_TOT_RTA', 'kappa_P_RTA', 'kappa_C']
-    for idx, (ph3, atoms) in tqdm(enumerate(zip(
-        ph3_list, relaxed_atoms_list)), desc='conductivity calculation'
-    ):
-        logger.log_progress_bar(
-            idx, len(relaxed_atoms_list), 'conductivity calculation'
-        )
-        mesh = _get_mesh_from_config(atoms, config)
+
+    for idx, atoms in tqdm(enumerate(ph3_list), desc='conductivity calculation'):
+        Im = False
+        mesh = _get_mesh(atoms)
+        ph3 = load(f'{config["phonon"]["save"]}/phonoepy_params_{idx}.yaml.xz')
+        fc2 = ph_IO.parse_FORCE_CONSTANTS(f'{load_fc2}/FORCE_CONSTANTS_2ND_{idx}')
+        fc3 = ph3_IO.read_fc3_from_hdf5(f'{load_fc3}/fc3_{idx}.hdf5')
+        ph3.fc3 = fc3
+        ph3.fc2 = fc2
+
         ph3.mesh_numbers = mesh
-        logger.recorder.update_recorder(
-            idx, 'Q_mesh', f'[{",".join(map(str, mesh))}]'
-        )
+
         try:
             ph3.init_phph_interaction(symmetrize_fc3q=False)
             ph3.run_phonon_solver()
             freqs, eigvecs, grid = ph3.get_phonon_data()
             has_imag = check_imaginary_freqs(freqs)
-            logger.recorder.update_recorder(idx, 'Imaginary', has_imag)
             if has_imag:
+                Im = True
                 warnings.warn(f'{idx}-th structure {atoms} has imaginary frequencies!')
 
             ph3.run_thermal_conductivity(
+                # is_LBTE=config['conductivity']['is_LBTE'],
                 temperatures=temperatures,
-                is_isotope=config['conductivity']['is_isotope'],
-                conductivity_type=conductivity_type,
+                # is_isotope=config['conductivity']['is_isotope'],
                 boundary_mfp=1e6,  # kSRME
             )
             cond = ph3.thermal_conductivity

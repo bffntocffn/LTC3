@@ -5,12 +5,8 @@ class Essential:
 
 
 DEFAULT_DATA_CONFIG = {
-    'input_path': Essential(),
+    'input': Essential(),
     'input_args': {'index': ':'},
-    'save_relax': False,
-    'save_fc2': False,
-    'save_fc3': False,
-    'save_cond': False,
 }
 
 
@@ -24,30 +20,39 @@ DEFAULT_CALC_CONFIG = {
 
 
 DEFAULT_RELAX_CONFIG = {
-    'relaxed_input_path': None,
-    'fmax': 0.0001,
-    'steps': 1000,
-    'opt': 'fire',
-    'cell_filter': 'frechet',
-    'fix_symm': True,
-    'log': '-',
+    'save': Essential(),
+    'load': None,
+    'cont': False,
+    'args': {},
 }
 
 
-DEFAULT_FC_CONFIG = {
-    'displacement': 0.03,  # phono3py default
-    'fc3_cutoff': 10000000,
-    'symmetrize_fc2': False,  # phonopy default
-    'symmetrize_fc3': True,
-    'load_fc2': None,
-    'load_fc3': None,
+DEFAULT_PHONON_CONFIG = {
+    'save': None
+    }
+
+DEFAULT_FC2_CONFIG = {
+    'save': None,
+    'load': None,
+    'symm': True
+
 }
 
+DEFAULT_FC3_CONFIG = {
+    'save': None,
+    'load': None,
+    'symm': True,
+    'displacement': None,
+    'cutoff': None
+
+}
 
 DEFAULT_COND_CONFIG = {
+    'save': None,
     'cond_type': 'bte',
     'temperature': 300,
     'is_isotope': True,
+    'is_LBTE': True
 }
 
 
@@ -56,8 +61,10 @@ def update_config_with_defaults(config):
         'data': DEFAULT_DATA_CONFIG,
         'calculator': DEFAULT_CALC_CONFIG,
         'relax': DEFAULT_RELAX_CONFIG,
-        'force_constant': DEFAULT_FC_CONFIG,
-        'conductivity': DEFAULT_COND_CONFIG,
+        'phonon': DEFAULT_PHONON_CONFIG,
+        'fc2': DEFAULT_FC2_CONFIG,
+        'fc3': DEFAULT_FC3_CONFIG,
+        'cond': DEFAULT_COND_CONFIG,
     }
 
     for key, default_config in key_parse_pair.items():
@@ -82,89 +89,63 @@ def _islistinstance(inps, insts):
 
 
 def check_calc_config(config):
-    config_calc = config['calculator']
-    assert config_calc['calc_type'].lower() in ['sevennet', 'sevennet-batch', 'custom']
-    assert isinstance(config_calc['path'], str)
-    assert _isinstance_in_list(config_calc['batch_size'], [int, type(None)])
-    assert _isinstance_in_list(config_calc['avg_atom_num'], [int, type(None)])
+    conf = config['calculator']
+    assert conf['calc_type'].lower() in ['sevennet', 'sevennet-batch', 'custom']
+    assert isinstance(conf['path'], str)
+    assert _isinstance_in_list(conf['batch_size'], [int, type(None)])
+    assert _isinstance_in_list(conf['avg_atom_num'], [int, type(None)])
 
 
 def check_relax_config(config):
-    config_relax = config['relax']
-    if (relaxed_path := config_relax['relaxed_input_path']) is not None:
+    conf = config['relax']
+    os.makedirs(conf['save'], exist_ok=True)
+    if (load := conf['load']) is not None:
         assert os.path.isfile(relaxed_path)
         return
 
-    assert os.path.isfile(config['data']['input_path'])
-    assert isinstance(config_relax['fmax'], float)
-    assert isinstance(config_relax['steps'], int)
-    assert config_relax['opt'].lower() in ['lbfgs', 'fire', 'fire2']
-    assert config_relax['cell_filter'].lower() in ['unitcell', 'frechet']
-    assert isinstance(config_relax['fix_symm'], bool)
-    assert isinstance(config_relax['log'], str)
+    assert os.path.isfile(config['data']['input'])
 
 
-def check_fc_config(config):
-    config_fc = config['force_constant']
-    pass_fc2, pass_fc3 = False, False
-    if (load_fc2 := config_fc['load_fc2']) is not None:
+def check_phonon_config(config):
+    conf = config['phonon']
+    os.makedirs(conf['save'], exist_ok=True)
+
+
+def check_fc2_config(config):
+    conf = config['fc2']
+    os.makedirs(conf['save'], exist_ok=True)
+    if (load_fc2 := conf['load']) is not None:
         assert os.path.isdir(load_fc2)
-        pass_fc2 = True
+    assert isinstance(conf['symm'], bool)
 
-    else:
-        assert (
-            _isinstance_in_list(config_fc['fc2_supercell'], [float, int])
-            or _islistinstance(config_fc['fc2_supercell'], [float, int])
-            or isinstance(config_fc['fc2_supercell'], str)
-        )
-        assert isinstance(config_fc['symmetrize_fc2'], bool)
 
-    if (load_fc3 := config_fc['load_fc3']) is not None:
+def check_fc3_config(config):
+    conf = config['fc3']
+    os.makedirs(conf['save'], exist_ok=True)
+    if (load_fc3 := conf['load']) is not None:
         assert os.path.isdir(load_fc3)
-        pass_fc3 = True
-
-    else:
-        assert (
-            _isinstance_in_list(config_fc['fc3_supercell'], [float, int])
-            or _islistinstance(config_fc['fc3_supercell'], [float, int])
-            or isinstance(config_fc['fc3_supercell'], str)
-        )
-        assert isinstance(config_fc['symmetrize_fc3'], bool)
-    if not(pass_fc2 and pass_fc3):
-        assert isinstance(config_fc['displacement'], float)
-
-    assert config_fc['fc2_type'].lower() == 'phonopy'
-    assert config_fc['fc3_type'].lower() in ['phonopy', 'shengbte']
-
-    if not pass_fc3:
-        if _isinstance_in_list(config_fc['fc3_cutoff'], [float, int]):
-            if config_fc['fc3_cutoff'] < 0:
-                assert isinstance(config_fc['fc3_cutoff'], int)
-        else:
-            assert isinstance(config_fc['fc3_cutoff'], str)
+    assert isinstance(conf['symm'], bool)
+    assert isinstance(conf['displacement'], float)
 
 
 def check_cond_config(config):
-    config_cond = config['conductivity']
+    conf = config['cond']
+    os.makedirs(conf['save'], exist_ok=True)
+    assert conf['cond_type'] in ['bte', 'wte']
     assert (
-        _isinstance_in_list(config_cond['q_points'], [float, int])
-        or _islistinstance(config_cond['q_points'], [float, int])
-        or isinstance(config_cond['q_points'], str)
+        _isinstance_in_list(conf['temperature'], [float, int])
+        or _islistinstance(conf['temperature'], [float, int])
     )
-    if (solver_type := config_cond['solver_type'].lower()) == 'shengbte':
-        assert config['data']['save_fc2']
-    assert (
-        _isinstance_in_list(config_cond['temperature'], [float, int])
-        or _islistinstance(config_cond['temperature'], [float, int])
-    )
-    assert isinstance(config_cond['is_isotope'], bool)
+    assert isinstance(conf['is_isotope'], bool)
 
 
 def parse_config(config):
     config = update_config_with_defaults(config)
     check_calc_config(config)
     check_relax_config(config)
+    check_phonon_config(config)
     check_fc_config(config)
+    check_fc2_config(config)
     check_cond_config(config)
 
     return config

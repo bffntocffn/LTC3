@@ -1,9 +1,9 @@
 from ase.constraints import FixSymmetry
-from ase.filters import UnitCellFilter, FrechetCellFilter
-from ase.optimize import LBFGS, FIRE, FIRE2
+from ase.filters import UnitCellFilter
+from ase.optimize import FIRE2, BFGS
 
-OPT_DICT = {'fire': FIRE, 'fire2': FIRE2,'lbfgs': LBFGS}
-FILTER_DICT = {'frechet': FrechetCellFilter, 'unitcell': UnitCellFilter}
+OPT_DICT = {'fire': FIRE, 'bfgs': BFGS}
+FILTER_DICT = {'unitcell': UnitCellFilter}
 
 
 class AseAtomRelax:
@@ -38,11 +38,30 @@ class AseAtomRelax:
             opt = self.opt(atoms, logfile=self.log)
 
         conv = opt.run(fmax=self.fmax, steps=self.steps)
-        return atoms, conv
+        steps = opt.get_number_of_steps()
+        atoms = self.update_atoms(atoms)
+        atoms.info['steps'] = steps
+        atoms.info['conv'] = conv
+        return atoms
+
+    def update_atoms(self, atoms):
+        atoms = atoms.copy()
+        atoms.calc = calc
+        atoms.info['e_fr_energy'] = atoms.get_potential_energy(force_consistent=True)
+        atoms.info['e_0_energy'] = atoms.get_potential_energy()
+        atoms.info['force'] = atoms.get_forces()
+        atoms.info['volume'] = atoms.get_volume()
+        atoms.info['a'] = atoms.cell.lengths()[0]
+        atoms.info['b'] = atoms.cell.lengths()[1]
+        atoms.info['c'] = atoms.cell.lengths()[2]
+        atoms.info['alpha'] = atoms.cell.angles()[0]
+        atoms.info['beta'] = atoms.cell.angles()[1]
+        atoms.info['gamma'] = atoms.cell.angles()[2]
+        return atoms
 
 
-def aar_from_config(config, calc):
-    arr_args = config['relax']
+def get_ase_relaxer(conf, calc):
+    arr_args = conf['args']
     arr_args.pop('relaxed_input_path', None)
 
     opt = OPT_DICT[arr_args['opt'].lower()]
