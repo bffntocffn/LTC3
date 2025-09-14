@@ -1,0 +1,7 @@
+*.DS_store
+*.egg-info
+*.sh
+*.pyright*
+*.x
+*__pycache__*
+*pyc
