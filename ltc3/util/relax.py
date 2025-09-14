@@ -2,7 +2,7 @@ from ase.constraints import FixSymmetry
 from ase.filters import UnitCellFilter
 from ase.optimize import FIRE2, BFGS
 
-OPT_DICT = {'fire': FIRE, 'bfgs': BFGS}
+OPT_DICT = {'fire2': FIRE2, 'bfgs': BFGS}
 FILTER_DICT = {'unitcell': UnitCellFilter}
 
 
@@ -46,7 +46,7 @@ class AseAtomRelax:
 
     def update_atoms(self, atoms):
         atoms = atoms.copy()
-        atoms.calc = calc
+        atoms.calc = self.calc
         atoms.info['e_fr_energy'] = atoms.get_potential_energy(force_consistent=True)
         atoms.info['e_0_energy'] = atoms.get_potential_energy()
         atoms.info['force'] = atoms.get_forces()

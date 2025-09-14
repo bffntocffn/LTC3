@@ -98,9 +98,8 @@ def check_calc_config(config):
 
 def check_relax_config(config):
     conf = config['relax']
-    os.makedirs(conf['save'], exist_ok=True)
     if (load := conf['load']) is not None:
-        assert os.path.isfile(relaxed_path)
+        assert os.path.isfile(load)
         return
 
     assert os.path.isfile(config['data']['input'])
@@ -144,8 +143,8 @@ def parse_config(config):
     check_calc_config(config)
     check_relax_config(config)
     check_phonon_config(config)
-    check_fc_config(config)
     check_fc2_config(config)
+    check_fc3_config(config)
     check_cond_config(config)
 
     return config

@@ -27,7 +27,7 @@ def process_relax(config, calc):
     save_dir = conf['save']
     ase_relaxer = get_ase_relaxer(conf, calc)
     
-    csv_log = open(f'{save_dir}/logger_logger.csv', 'a' buffering=1) if conf['cont'] else open(f'{save_dir}/relax.csv', 'w', buffering=1)
+    csv_log = open(f'{save_dir}/logger_logger.csv', 'a', buffering=1) if conf['cont'] else open(f'{save_dir}/relax.csv', 'w', buffering=1)
     csv_log.write('idx,opt,formula,sgn,energy,volume,natom,a,b,c,alpha,beta,gamma,conv,steps\n')
 
     for idx, atoms in enumerate(tqdm(atoms_list, desc='relaxing atoms')):
@@ -43,6 +43,6 @@ def process_relax(config, calc):
         atoms = ase_relaxer.update_atoms(atoms)
         spg_num = atoms.info['spg_num'] = get_spgnum(atoms)
         write_csv(csv_log, atoms, idx)
-        write(f"{save_dir}/relaxed.extxyz", atoms, format='extxyz', append=True if idx > 0 else False)
+        write(save_dir, atoms, format='extxyz', append=True if idx > 0 else False)
         del atoms
         gc.collect()

@@ -1,13 +1,11 @@
 import os
 import sys
 from tqdm import tqdm
-import warnings
-
+from ase.io import read
 from phono3py import Phono3py, load
 from phono3py import file_IO as ph3_IO
 from phonopy import file_IO as ph_IO
 
-from ltc3.util.logger import Logger
 from ltc3.util.phonopy_utils import check_imaginary_freqs, get_spgnum
 
 def _get_mesh(atoms):
@@ -27,7 +25,7 @@ def postprocess_kappa_to_csv(file, idx, temps, kappas, mesh, Im):
             kappa_join = ','.join(map(str,kappa))
         file.write(f'{idx},{temp},{kappa_join},{mesh},{Im}\n')
 
-def process__conductivity(config):
+def process_conductivity(config):
     conf = config['cond']
     save_dir = conf['save']
 
@@ -43,17 +41,20 @@ def process__conductivity(config):
 
     csv_tot = open(f'{save_dir}/kappa_total.csv', 'w', buffering=1)
     csv_tot.write(f'index,temperature,xx,yy,zz,yz,xz,xy,mesh,Imaginary\n')
+    csv_p, csv_c = None, None
     if conductivity_type == 'wigner':
         # bte method doesn't need this? idk sadly this is way behind my priorities
-        csv_p = open(os.path.join(save_path,'kappa_p.csv'), 'w', buffering=1)
+        csv_p = open(os.path.join(save_dir,'kappa_p.csv'), 'w', buffering=1)
         csv_p.write(f'index,temperature,xx,yy,zz,yz,xz,xy\n')
-        csv_c = open(os.path.join(save_path,'kappa_c.csv'), 'w', buffering=1)
+        csv_c = open(os.path.join(save_dir,'kappa_c.csv'), 'w', buffering=1)
         csv_c.write(f'index,temperature,xx,yy,zz,yz,xz,xy\n')
 
 
     KAPPA_KEYS = ['kappa', 'kappa_TOT_RTA', 'kappa_P_RTA', 'kappa_C']
+    atoms_list = read(config["relax"]["save"], **config['data']['input_args'])
+    load_fc2, load_fc3 = config['fc2']['save'], config['fc3']['save']
 
-    for idx, atoms in tqdm(enumerate(ph3_list), desc='conductivity calculation'):
+    for idx, atoms in tqdm(enumerate(atoms_list), desc='conductivity calculation'):
         Im = False
         mesh = _get_mesh(atoms)
         ph3 = load(f'{config["phonon"]["save"]}/phonoepy_params_{idx}.yaml.xz')
@@ -71,7 +72,7 @@ def process__conductivity(config):
             has_imag = check_imaginary_freqs(freqs)
             if has_imag:
                 Im = True
-                warnings.warn(f'{idx}-th structure {atoms} has imaginary frequencies!')
+                print(f'{idx}-th structure {atoms} has imaginary frequencies!')
 
             ph3.run_thermal_conductivity(
                 # is_LBTE=config['conductivity']['is_LBTE'],
@@ -90,13 +91,12 @@ def process__conductivity(config):
             cond_dict = {key: nones for key in KAPPA_KEYS}
 
         total_key = 'kappa_TOT_RTA' if conductivity_type == 'wigner' else 'kappa'
-        postprocess_kappa_to_csv(csv_tot, idx, temperatures, cond_dict[total_key])
+        postprocess_kappa_to_csv(csv_tot, idx, temperatures, cond_dict[total_key], mesh, Im)
         if conductivity_type == 'wigner':
             postprocess_kappa_to_csv(
-                csv_p, idx, temperatures, cond_dict['kappa_P_RTA']
+                csv_p, idx, temperatures, cond_dict['kappa_P_RTA'], mesh, Im,
             )
-            postprocess_kappa_to_csv(csv_c, idx, temperatures, cond_dict['kappa_C'])
-    logger.finalize_progress_bar()
+            postprocess_kappa_to_csv(csv_c, idx, temperatures, cond_dict['kappa_C'], mesh, Im)
     csv_tot.close()
     if conductivity_type == 'wigner':
         csv_p.close()
