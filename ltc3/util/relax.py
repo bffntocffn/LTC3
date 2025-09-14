@@ -1,8 +1,8 @@
 from ase.constraints import FixSymmetry
 from ase.filters import UnitCellFilter, FrechetCellFilter
-from ase.optimize import LBFGS, FIRE
+from ase.optimize import LBFGS, FIRE, FIRE2
 
-OPT_DICT = {'fire': FIRE, 'lbfgs': LBFGS}
+OPT_DICT = {'fire': FIRE, 'fire2': FIRE2,'lbfgs': LBFGS}
 FILTER_DICT = {'frechet': FrechetCellFilter, 'unitcell': UnitCellFilter}
 
 

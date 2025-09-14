@@ -1,0 +1,48 @@
+data:
+    input_path: 'data.extxyz'  # path (usually extxyz) for target calculation
+    input_args:  # this will pass to ase.io.read
+        format: 'extxyz'
+        index: ':'
+
+    save_relax: './relax/relax.extxyz'  # if given, relaxed geometries will be saved to this file
+    save_fc2: './fc2/'  # if given, fc2 will saved in this directory
+    save_fc3: './fc3/'
+    save_cond: './cond/'  # save result of conductivity
+
+calculator:
+    calc_type: 'sevennet'  # sevennet, sevennet-batch, custom
+    path: '/data2/shared_data/cps/omni/oob_v6/checkpoint_1.pth'  
+    calc_args:  
+        modal: 'omat24' # matpes_r2scan
+    # batch_size: 10  # for sevennet batch calculator, set batch size
+    # avg_atom_num: 10  # for sevennet batch calculator, set avg # of atoms in each batch
+
+relax:
+    # relaxed_input_path: 'relaxed.extxyz'  # if this given, pass relaxation
+    fmax: 1e-04
+    steps: 4000  
+    opt: 'fire2'
+    cell_filter: 'frechet'
+    fix_symm: True
+    log: 'relax.log' 
+
+force_constant:
+    displacement: 0.03  # in Angstrom
+    # if int / float, replicate cell to reach this value (unit: Angstrom).
+    # if str, use atoms.info[str]
+    fc3_cutoff: 5.
+    # if int / float > 0, cutoff radius (unit: Angstrom)
+    # if int < 0, consider (-int)-th neighbor
+    # if str, use atoms.info[str]
+    # if not given, do not use cutoff
+
+    symmetrize_fc2: False  # if True, symmetrize force constants using phonopy scheme
+    symmetrize_fc3: True
+
+    # load_fc2: False  
+    # load_fc3: False
+    
+conductivity:
+    cond_type: 'bte'  # [bte, wte]
+    temperature: 300  
+    is_isotope: True  # whether consider isotope effect

@@ -1,6 +1,5 @@
 import os
 
-
 class Essential:
     pass
 
@@ -12,7 +11,6 @@ DEFAULT_DATA_CONFIG = {
     'save_fc2': False,
     'save_fc3': False,
     'save_cond': False,
-    'save_control': False,
 }
 
 
@@ -38,10 +36,6 @@ DEFAULT_RELAX_CONFIG = {
 
 DEFAULT_FC_CONFIG = {
     'displacement': 0.03,  # phono3py default
-    'fc2_supercell': 25.,
-    'fc3_supercell': 15.,
-    'fc2_type': 'phonopy',
-    'fc3_type': 'shengbte',
     'fc3_cutoff': 10000000,
     'symmetrize_fc2': False,  # phonopy default
     'symmetrize_fc3': True,
@@ -51,12 +45,9 @@ DEFAULT_FC_CONFIG = {
 
 
 DEFAULT_COND_CONFIG = {
-    'solver_type': 'shengbte',
     'cond_type': 'bte',
-    'q_points': 19,
     'temperature': 300,
     'is_isotope': True,
-    'convergence': False,
 }
 
 
@@ -107,7 +98,7 @@ def check_relax_config(config):
     assert os.path.isfile(config['data']['input_path'])
     assert isinstance(config_relax['fmax'], float)
     assert isinstance(config_relax['steps'], int)
-    assert config_relax['opt'].lower() in ['lbfgs', 'fire']
+    assert config_relax['opt'].lower() in ['lbfgs', 'fire', 'fire2']
     assert config_relax['cell_filter'].lower() in ['unitcell', 'frechet']
     assert isinstance(config_relax['fix_symm'], bool)
     assert isinstance(config_relax['log'], str)
@@ -130,7 +121,6 @@ def check_fc_config(config):
 
     if (load_fc3 := config_fc['load_fc3']) is not None:
         assert os.path.isdir(load_fc3)
-        assert config_fc['fc3_type'].lower() == 'phonopy'
         pass_fc3 = True
 
     else:
@@ -163,16 +153,6 @@ def check_cond_config(config):
     )
     if (solver_type := config_cond['solver_type'].lower()) == 'shengbte':
         assert config['data']['save_fc2']
-        assert config['data']['save_fc3']
-        assert config['data']['save_control']
-        assert config['force_constant']['fc3_type'].lower() == 'shengbte'
-        assert config_cond['cond_type'].lower() == 'bte'
-        assert isinstance(config_cond['convergence'], bool)
-    elif solver_type == 'phonopy':
-        assert config['data']['save_cond']
-        assert config_cond['cond_type'].lower() in ['bte', 'wte']
-        assert config_cond['convergence'] is False
-
     assert (
         _isinstance_in_list(config_cond['temperature'], [float, int])
         or _islistinstance(config_cond['temperature'], [float, int])

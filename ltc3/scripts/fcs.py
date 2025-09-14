@@ -9,11 +9,25 @@ from phono3py import Phono3py
 from phono3py import file_IO as ph3_IO
 from phonopy import file_IO as ph_IO
 
-from ltc3.thirdorder.thirdorder_ase import thirdorder_main, from_atoms
-from ltc3.thirdorder.thirdorder_common import gen_SPOSCAR, calc_dists, calc_frange
 from ltc3.util.logger import Logger
 from ltc3.util.calc import SevenNetBatchCalculator, single_point_calculate_list
-from ltc3.util.phonopy_utils import aseatoms2phonoatoms, get_supercell_matrix
+from ltc3.util.phonopy_utils import aseatoms2phonoatoms, get_spgnum
+
+def _get_fc2_supercell(atoms):
+    sg_num = get_spgnum(atoms)
+    if sg_num == 186:
+        fc2_supercell = [5, 5, 3]
+    else:
+        fc2_supercell = [4, 4, 4]
+    return  fc2_supercell
+
+def _get_fc3_supercell(atoms):
+    sg_num = get_spgnum(atoms)
+    if sg_num  == 186:
+        fc3_supercell = [3, 3, 2]
+    else:
+        fc3_supercell = [2, 2, 2]
+    return fc3_supercell
 
 
 def calculate_fc2(ph3, calc, symmetrize_fc2):
@@ -47,8 +61,7 @@ def calculate_fc2(ph3, calc, symmetrize_fc2):
 
     return ph3
 
-
-def calculate_fc3_phono3py(ph3, calc, symmetrize_fc3):
+def calculate_fc3(ph3, calc, symmetrize_fc3):
     desc = 'fc3 calculation'
     forces = []
     nat = len(ph3.supercell)
@@ -80,7 +93,7 @@ def calculate_fc3_phono3py(ph3, calc, symmetrize_fc3):
     return ph3
 
 
-def process_fcs_for_ph3(config, relaxed_atoms_list, calc):
+def process_fcs(config, relaxed_atoms_list, calc):
     logger = Logger()
     ph3_list = []
 

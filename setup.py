@@ -7,10 +7,10 @@ from distutils.extension import Extension
 
 # Add the location of the "spglib/spglib.h" to this list if necessary.
 # Example: INCLUDE_DIRS=["/home/user/local/include"]
-INCLUDE_DIRS = []
+INCLUDE_DIRS = ["/home/jinvk/environment/venv/ltc-seven/lib/python3.11/site-packages/spglib/include"]
 # Add the location of the spglib shared library to this list if necessary.
 # Example: LIBRARY_DIRS=["/home/user/local/lib"]
-LIBRARY_DIRS = []
+LIBRARY_DIRS = ["/home/jinvk/environment/venv/ltc-seven/lib"]
 
 # Set USE_CYTHON to True if you want include the cythonization in your build
 # process.
