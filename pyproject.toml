@@ -1,0 +1,36 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "ltc3"
+version = "0.1.0"
+authors = [
+  { name = "Yujin(Will) Kang", email = "yjkang@snu.ac.kr" },
+  ]
+description = "python package for calculating  the lattice thermal conductivity of 103 compounds from phonondb"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "sevenn",
+    "numpy",
+    "spglib"
+    ]
+
+[project.scripts]
+ltc3 = "ltc3.main:main"
+
+[tool.setuptools]
+packages = [
+    "ltc3",
+    "ltc3.scripts",
+    "ltc3.util",
+]
+
+[project.urls]
+Homepage = "https://github.com/bffintocffin/ltc3"
+Issues = "https://github.com/bffintocffin/ltc3/issues"

@@ -21,7 +21,7 @@ def write_csv(csv_file, atoms, idx):
     csv_file.write(f'{idx},{opt},{atoms.info["formula"]},{sgnum},{atoms.info["e_fr_energy"]},{atoms.info["volume"]},{len(atoms)}{atoms.info["a"]},{atoms.info["b"]},{atoms.info["c"]},{atoms.info["alpha"]},{atoms.info["beta"]},{atoms.info["gamma"]},{conv},{steps}\n')
 
 
-def relax_atoms_list(config, calc):
+def process_relax(config, calc):
     atoms_list = read(config['data']['input_path'], **config['data']['input_args'])
     conf = config['relax']
     save_dir = conf['save']
