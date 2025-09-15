@@ -6,6 +6,7 @@ import pandas as pd
 import h5py
 from copy import deepcopy
 import numpy as np
+import time
 
 def check_imaginary_freqs(frequencies: np.ndarray) -> bool:
     try:
@@ -21,7 +22,7 @@ def check_imaginary_freqs(frequencies: np.ndarray) -> bool:
         if np.any(frequencies[1:] < 0):
             return True
     except Exception as e:
-        warnings.warn(f"Failed to check imaginary frequencies: {e!r}")
+        print(f"Failed to check imaginary frequencies: {e!r}")
 
     return False
 
@@ -45,7 +46,7 @@ def process_conductivity(head):
     save_dir = f'{head}/cond'
     conductivity_type = 'wigner'
 
-    df = pd.read_csv(f'{head}./relax_logger.csv')
+    df = pd.read_csv(f'{head}/relax_logger.csv')
     df.drop_duplicates('idx', inplace=True)
     spg_nums = list(df['sgn'])
  
@@ -62,11 +63,12 @@ def process_conductivity(head):
 
     KAPPA_KEYS = ['kappa_TOT_RTA', 'kappa_P_RTA', 'kappa_C']
     load_fc2, load_fc3, load_ph3 = f'{head}/fc2', f'{head}/fc3', f'{head}/phonon'
+    temperatures = [300,]
 
     for idx, spg_num in tqdm(enumerate(spg_nums), desc='calculating conductivity'):
         Im = False
         mesh = _get_mesh(spg_num)
-        ph3 = load(f'{load_phonon}/phono3py_params_fc2_{idx}.yaml')
+        ph3 = load(f'{load_ph3}/phono3py_params_fc2_{idx}.yaml')
         fc3 = ph3_IO.read_fc3_from_hdf5(f'{load_fc3}/fc3_{idx}.hdf5')
         ph3.fc3 = fc3
 
@@ -77,13 +79,13 @@ def process_conductivity(head):
         freqs, eigvecs, grid = ph3.get_phonon_data()
         has_imag = check_imaginary_freqs(freqs)
         if has_imag:
-            print(f'{idx}-th structure {atoms} has imaginary frequencies!')
+            print(f'{idx}-th structure of {spg_num} has imaginary frequencies!')
             Im = True
 
-        with h5py.File(f'{load_phonon}/phonon_{idx}.hdf5', 'w') as f:
+        with h5py.File(f'{load_ph3}/phonon_{idx}.hdf5', 'w') as f:
             g = f.create_group(f'{idx}')
-            g.create_dataset('freq', data = freq)
-            g.create_dataset('eigvec', data = eigvec)
+            g.create_dataset('freq', data = freqs)
+            g.create_dataset('eigvec', data = eigvecs)
             g.create_dataset('grid', data = grid)
             g.attrs['mesh'] = mesh
             g.attrs['spg_num'] = spg_num
@@ -91,30 +93,14 @@ def process_conductivity(head):
             g.attrs['has_Im'] = has_imag
             g.attrs['idx'] = idx
 
-        with h5py.File(f'{load_fc2}/phonon_dataset_{idx}.hdf5', 'w') as f:
-            g = f.create_group(f'{idx}')
-            g.create_dataset('natom', data = ph3.phonon_dataset['natom'])
-            g.create_dataset('first_atoms', data = ph3.phonon_dataset['first_atoms'])
-            g.attrs['spg_num'] = spg_num
-            g.attrs['formula'] = ph3.unitcell.formula
-            g.attrs['idx'] = idx
-
-        with h5py.File(f'{load_fc3}/dataset_{idx}.hdf5', 'w') as f:
-            g = f.create_group(f'{idx}')
-            g.create_dataset('natom', data = ph3.dataset['natom'])
-            g.create_dataset('first_atoms', data = ph3.dataset['first_atoms'])
-            g.create_dataset('duplicates', data = ph3.dataset['duplicates'])
-            g.attrs['spg_num'] = spg_num
-            g.attrs['formula'] = ph3.unitcell.formula
-            g.attrs['idx'] = idx
-
 
         ph3.run_thermal_conductivity(
-            temperatures=[300,]
+            temperatures=temperatures,
             conductivity_type='wigner',
             is_isotope=True,
-            boundary_mfp=1e6
-        )
+            boundary_mfp=1e6, 
+            )
+
         kappa = ph3.thermal_conductivity
         ph3.save(f'{save_dir}/phono3py_{idx}.yaml')
 
@@ -125,7 +111,7 @@ def process_conductivity(head):
             g = f.create_group(f'{idx}')
             for key in cond_keys:
                 try:
-                    g.create_dataset(key, data = kappa.key)
+                    g.create_dataset(key, data = getattr(kappa, key))
                 except:
                     continue
             g.attrs['spg_num'] = spg_num
@@ -133,11 +119,12 @@ def process_conductivity(head):
             g.attrs['idx'] = idx
             g.attrs['type'] = 'wigner'
 
-       cond_dict = {
-               'kappa_TOT_RTA': deepcopy(kappa.kappa_TOT_RTA),
-               'kappa_P_RTA': deepcopy(kappa.kappa_P_RTA,
-               'kappa_C': deepcopy(kappa.kappa_C),
-        }
+        try:
+           cond_dict = {
+               'kappa_TOT_RTA': deepcopy(getattr(kappa, 'kappa_TOT_RTA')),
+               'kappa_P_RTA': deepcopy(getattr(kappa, 'kappa_P_RTA')),
+               'kappa_C': deepcopy(getattr(kappa, 'kappa_C')),
+            }
             
         except Exception as e:
             sys.stderr.write(f'Conductivity error in {idx}: {e}\n')
@@ -150,8 +137,10 @@ def process_conductivity(head):
             csv_p, idx, temperatures, cond_dict['kappa_P_RTA'], mesh, Im,
         )
         postprocess_kappa_to_csv(csv_c, idx, temperatures, cond_dict['kappa_C'], mesh, Im)
-    del ph3
-    gc.collect()
+        del ph3
+        gc.collect()
+        time.sleep(10)
+
     csv_tot.close()
     csv_p.close()
     csv_c.close()
@@ -159,4 +148,3 @@ def process_conductivity(head):
 
 if __name__ == '__main__':
     process_conductivity(head = sys.argv[1])
-
