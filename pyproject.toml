@@ -16,12 +16,12 @@ description = "python package for calculating  the lattice thermal conductivity 
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "sevenn",
     "phonopy",
     "seekpath",
     "phono3py",
-    "numpy",
-    "spglib"
+    "spglib",
+    "tqdm",
+    "ase"
     ]
 
 [project.scripts]

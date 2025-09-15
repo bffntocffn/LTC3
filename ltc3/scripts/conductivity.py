@@ -1,16 +1,14 @@
-import os
-import sys
+import os, gc
+import sys, torch
 from tqdm import tqdm
 from ase.io import read
 from phono3py import Phono3py, load
 from phono3py import file_IO as ph3_IO
-from phonopy import file_IO as ph_IO
+import pandas as pd
+from ltc3.util.phonopy_utils import check_imaginary_freqs
 
-from ltc3.util.phonopy_utils import check_imaginary_freqs, get_spgnum
-
-def _get_mesh(atoms):
-    sg_num = get_spgnum(atoms)
-    if sg_num == 186:
+def _get_mesh(spg_num):
+    if spg_num == 186:
         mesh = [19, 19, 15]
     else:
         mesh = [19, 19, 19]
@@ -34,14 +32,19 @@ def process_conductivity(config):
     else:
         temperatures = [temp]
 
-    if config['conductivity']['cond_type'].lower() == 'bte':
+    if conf['cond_type'].lower() == 'bte':
         conductivity_type = None
     else:
         conductivity_type = 'wigner'
 
+    df = pd.read_csv(f'./relax_logger.csv')
+    df.drop_duplicates('idx', inplace=True)
+    spg_nums = list(df['sgn'])
+ 
     csv_tot = open(f'{save_dir}/kappa_total.csv', 'w', buffering=1)
     csv_tot.write(f'index,temperature,xx,yy,zz,yz,xz,xy,mesh,Imaginary\n')
     csv_p, csv_c = None, None
+
     if conductivity_type == 'wigner':
         # bte method doesn't need this? idk sadly this is way behind my priorities
         csv_p = open(os.path.join(save_dir,'kappa_p.csv'), 'w', buffering=1)
@@ -51,19 +54,18 @@ def process_conductivity(config):
 
 
     KAPPA_KEYS = ['kappa', 'kappa_TOT_RTA', 'kappa_P_RTA', 'kappa_C']
-    atoms_list = read(config["relax"]["save"], **config['data']['input_args'])
     load_fc2, load_fc3 = config['fc2']['save'], config['fc3']['save']
 
-    for idx, atoms in tqdm(enumerate(atoms_list), desc='conductivity calculation'):
+    for idx, spg_num in tqdm(enumerate(spg_nums), desc='calculating conductivity'):
         Im = False
-        mesh = _get_mesh(atoms)
-        ph3 = load(f'{config["phonon"]["save"]}/phonoepy_params_{idx}.yaml.xz')
-        fc2 = ph_IO.parse_FORCE_CONSTANTS(f'{load_fc2}/FORCE_CONSTANTS_2ND_{idx}')
+        mesh = _get_mesh(spg_num)
+        ph3 = load(f'{config["phonon"]["save"]}/phono3py_params_fc2_{idx}.yaml')
         fc3 = ph3_IO.read_fc3_from_hdf5(f'{load_fc3}/fc3_{idx}.hdf5')
         ph3.fc3 = fc3
-        ph3.fc2 = fc2
 
         ph3.mesh_numbers = mesh
+        print(f'index .. {idx}')
+        print(f'mesh numbers .. {mesh}')
 
         try:
             ph3.init_phph_interaction(symmetrize_fc3q=False)
@@ -75,10 +77,8 @@ def process_conductivity(config):
                 print(f'{idx}-th structure {atoms} has imaginary frequencies!')
 
             ph3.run_thermal_conductivity(
-                # is_LBTE=config['conductivity']['is_LBTE'],
                 temperatures=temperatures,
-                # is_isotope=config['conductivity']['is_isotope'],
-                boundary_mfp=1e6,  # kSRME
+                conductivity_type=conductivity_type
             )
             cond = ph3.thermal_conductivity
             cond_dict = {
@@ -97,6 +97,8 @@ def process_conductivity(config):
                 csv_p, idx, temperatures, cond_dict['kappa_P_RTA'], mesh, Im,
             )
             postprocess_kappa_to_csv(csv_c, idx, temperatures, cond_dict['kappa_C'], mesh, Im)
+        del ph3
+        gc.collect()
     csv_tot.close()
     if conductivity_type == 'wigner':
         csv_p.close()

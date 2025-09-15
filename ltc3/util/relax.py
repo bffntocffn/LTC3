@@ -1,9 +1,9 @@
 from ase.constraints import FixSymmetry
-from ase.filters import UnitCellFilter
-from ase.optimize import FIRE2, BFGS
+from ase.filters import UnitCellFilter, FrechetCellFilter
+from ase.optimize import FIRE, BFGS
 
-OPT_DICT = {'fire2': FIRE2, 'bfgs': BFGS}
-FILTER_DICT = {'unitcell': UnitCellFilter}
+OPT_DICT = {'fire': FIRE, 'bfgs': BFGS}
+FILTER_DICT = {'unitcell': UnitCellFilter, 'frechet': FrechetCellFilter}
 
 
 class AseAtomRelax:
@@ -37,11 +37,15 @@ class AseAtomRelax:
         else:
             opt = self.opt(atoms, logfile=self.log)
 
-        conv = opt.run(fmax=self.fmax, steps=self.steps)
+        opt.run(fmax=self.fmax, steps=self.steps)
         steps = opt.get_number_of_steps()
         atoms = self.update_atoms(atoms)
         atoms.info['steps'] = steps
-        atoms.info['conv'] = conv
+        atoms.info['opt'] = True
+        if steps < self.steps:
+            atoms.info['conv'] = True
+        else:
+            atoms.info['conv'] = False
         return atoms
 
     def update_atoms(self, atoms):
