@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/jinvk/__project__/2025/LTC3/example/aug.py", line 26, in <module>
+    get_csv(modal)
+  File "/home/jinvk/__project__/2025/LTC3/example/aug.py", line 10, in get_csv
+    csv_file = open(f'{modal}.csv', 'w', buffeering = 1)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'buffeering' is an invalid keyword argument for open()
